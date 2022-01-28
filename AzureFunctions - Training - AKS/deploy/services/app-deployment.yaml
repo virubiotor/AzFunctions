@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vr-app
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: vr-app
+  template:
+    metadata:
+      labels:
+        app: vr-app
+    spec:
+      containers:
+        - name: vr-app
+          image:  __{AcrResourceName}__/azfunctionsvr/app:__{BuildNumber}__
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            httpGet:
+              path: /self
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 60
+            timeoutSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 0 # Set to 0 to execute a probe when pod starts to avoid accept traffic when is not ready
+            periodSeconds: 20
+            timeoutSeconds: 30
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: "100m"
+            limits:
+              memory: "1000Mi"
+              cpu: "400m"

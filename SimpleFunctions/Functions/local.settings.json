@@ -1,0 +1,12 @@
+{
+    "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "AzureWebJobsDashboard": null,
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet",
+    "TABLE_CONNECTION_STRING": "UseDevelopmentStorage=true",
+    "ServiceBusConnection": "UseDevelopmentStorage=true",
+    "AzureWebJobsSecretStorageType": "files",
+    "FilePath": "PATH_TO_FOLDER"
+  }
+}

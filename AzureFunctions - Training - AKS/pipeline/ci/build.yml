@@ -1,0 +1,103 @@
+parameters:  
+  - name: subscription
+    type: string
+
+jobs:
+  - job: Build
+    displayName: 'Build'
+    workspace:
+      clean: all
+
+    variables:
+      - group: ACR
+
+    services:
+      azurite:
+        image: mcr.microsoft.com/azure-storage/azurite:3.11.0
+        ports:
+          - 10000:10000
+          - 10001:10001
+
+    steps:
+      - task: UseDotNet@2
+        displayName: 'Use .NET Core 3.1 sdk'
+        inputs:
+          packageType: sdk
+          version: 3.1.408
+          workingDirectory: '$(System.DefaultWorkingDirectory)'
+
+      - task: DotNetCoreCLI@2
+        displayName: 'dotnet restore'
+        inputs:
+          command: restore
+          projects: '**/*.csproj'
+
+      - task: DotNetCoreCLI@2
+        displayName: 'dotnet build'
+        inputs:
+          command: build
+          projects: '**/*.csproj'
+
+      - task: DotNetCoreCLI@2
+        displayName: 'dotnet test'
+        inputs:
+          command: test
+          projects: '$(System.DefaultWorkingDirectory)/src/DurableECommerceTests/DurableECommerceTests.csproj'
+          arguments: '--no-build /p:CollectCoverage=true /p:Exclude="\"[*]*Test*,[*Test*]*\"" /p:CoverletOutputFormat="\"opencover,cobertura\""'
+      
+      - task: PublishTestResults@2
+        displayName: 'Publish Test Results'
+        inputs:
+          testResultsFormat: xUnit
+          searchFolder: '$(System.DefaultWorkingDirectory)'
+          testResultsFiles: '**/*.trx'
+
+      - task: PublishPipelineArtifact@1
+        displayName: 'Publish Artifact: Terraform'
+        inputs:
+          targetPath: $(System.DefaultWorkingDirectory)/deploy/infrastructure
+          artifact: Terraform
+          publishLocation: 'pipeline'
+
+      - task: PublishPipelineArtifact@1
+        displayName: 'Publish Artifact: Deployment'
+        inputs:
+          targetPath: $(System.DefaultWorkingDirectory)/deploy/services
+          artifact: FunctionsDeployment
+          publishLocation: 'pipeline'
+
+      - task: Docker@1
+        displayName: 'Build WebApp Image'
+        inputs:
+          azureSubscriptionEndpoint: '${{parameters.subscription}}'
+          azureContainerRegistry: '$(AcrResourceName)'
+          dockerFile: src/DurableECommerceWeb/Dockerfile
+          imageName: 'azfunctionsvr/app:$(Build.BuildNumber)'
+          useDefaultContext: false
+          buildContext: $(System.DefaultWorkingDirectory)
+
+      - task: Docker@1
+        displayName: 'Push WebApp Image'
+        inputs:
+          azureSubscriptionEndpoint: '${{parameters.subscription}}'
+          azureContainerRegistry: '$(AcrResourceName)'
+          command: 'Push an image'
+          imageName: 'azfunctionsvr/app:$(Build.BuildNumber)'
+
+      - task: Docker@1
+        displayName: 'Build Functions Image'
+        inputs:
+          azureSubscriptionEndpoint: '${{parameters.subscription}}'
+          azureContainerRegistry: '$(AcrResourceName)'
+          dockerFile: src/Workflows/Dockerfile
+          imageName: 'azfunctionsvr/function:$(Build.BuildNumber)'
+          useDefaultContext: false
+          buildContext: $(System.DefaultWorkingDirectory)
+
+      - task: Docker@1
+        displayName: 'Push Function Image'
+        inputs:
+          azureSubscriptionEndpoint: '${{parameters.subscription}}'
+          azureContainerRegistry: '$(AcrResourceName)'
+          command: 'Push an image'
+          imageName: 'azfunctionsvr/function:$(Build.BuildNumber)'

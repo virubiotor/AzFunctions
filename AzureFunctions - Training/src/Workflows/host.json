@@ -1,0 +1,24 @@
+{
+  "version": "2.0",
+  "aggregator": {
+    "batchSize": 1000,
+    "flushTimeout": "00:00:30"
+  },
+  "logging": {
+    "logLevel": {
+      "default": "Warning",
+      "Function": "Error",
+      "Host.Aggregator": "Error",
+      "Host.Results": "Information",
+      "Function.A_SaveOrderToDatabase": "Information",
+      "Function.A_SaveOrderToDatabase.User": "Error"
+    },
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "excludedTypes": "Request;Exception",
+        "maxTelemetryItemsPerSecond": 20
+      }
+    }
+  }
+}

@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vr-function
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: vr-function
+  template:
+    metadata:
+      labels:
+        app: vr-function
+    spec:
+      containers:
+        - name: vr-function
+          imagePullPolicy: IfNotPresent
+          image: __{AcrResourceName}__/azfunctionsvr/function:__{BuildNumber}__
+          ports:
+            - containerPort: 80
+          envFrom:
+          - configMapRef:
+              name: vr-function
+          volumeMounts:
+          - name: vr-function-secrets
+            mountPath: "/azure-functions-host/secrets"
+            readOnly: true
+          resources:
+            requests:
+              memory: "150Mi"
+              cpu: "100m"
+            limits:
+              memory: "300Mi"
+              cpu: "150m"
+      imagePullSecrets:
+        - name: regcred
+      volumes:
+        - name: vr-function-secrets
+          secret:
+            secretName: vr-function-secrets
+            items:
+            - key: value
+              path: secrets.json

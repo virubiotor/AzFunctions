@@ -1,0 +1,9 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet",
+    "OIDCUrl": "https://localhost:5001/.well-known/openid-configuration",
+    "OpenApi__Auth__TenantId": "f4672fed-7621-42c7-86ee-396fbf818f6d"
+  }
+}

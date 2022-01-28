@@ -1,0 +1,79 @@
+parameters:  
+  - name: subscription
+    type: string
+
+jobs:
+  - deployment: Deploy_Infrastructure
+    displayName: Deploy Infrastructure
+    environment: Functions
+    workspace:
+      clean: all
+
+    variables:
+      - group: Functions - Terraform - AKS
+
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - download: current
+              displayName: "Download Terraform artifact"
+              artifact: Terraform
+
+            - task: colinsalmcorner.colinsalmcorner-buildtasks.replace-tokens-task.ReplaceTokens@1
+              displayName: "Replace tokens in infrastructure"
+              inputs:
+                sourcePath: "$(Pipeline.Workspace)/Terraform"
+                filePattern: "*.tf*"
+      
+            - task: charleszipp.azure-pipelines-tasks-terraform.azure-pipelines-tasks-terraform-installer.TerraformInstaller@0
+              displayName: 'Install Terraform'
+              inputs:
+                terraformVersion: '$(TerraformVersion)'
+          
+            - task: charleszipp.azure-pipelines-tasks-terraform.azure-pipelines-tasks-terraform-cli.TerraformCLI@0
+              displayName: 'Terraform init'
+              inputs:
+                command: init
+                workingDirectory: '$(Pipeline.Workspace)/Terraform'
+                backendType: azurerm
+                backendServiceArm: '${{parameters.subscription}}'
+                ensureBackend: false
+                backendAzureRmResourceGroupName: '$(ResourceGroup)'
+                backendAzureRmStorageAccountName: '$(StorageName)'
+                backendAzureRmContainerName: '$(Container)'
+                backendAzureRmKey: '$(StateFile)'
+
+            - task: charleszipp.azure-pipelines-tasks-terraform.azure-pipelines-tasks-terraform-cli.TerraformCLI@0
+              displayName: 'Terraform plan'
+              inputs:
+                command: plan
+                workingDirectory: '$(Pipeline.Workspace)/Terraform'
+                environmentServiceName: '${{parameters.subscription}}'
+                commandOptions: '-detailed-exitcode'
+          
+            - task: charleszipp.azure-pipelines-tasks-terraform.azure-pipelines-tasks-terraform-cli.TerraformCLI@0
+              displayName: 'Terraform apply'
+              condition: and(succeeded(), eq(variables['TERRAFORM_PLAN_HAS_CHANGES'], 'true'))
+              inputs:
+                command: apply
+                workingDirectory: '$(Pipeline.Workspace)/Terraform'
+                environmentServiceName: '${{parameters.subscription}}'
+                commandOptions: '-input=false -auto-approve'
+          
+            - task: raul-arrieta.terraform-outputs.terraform-outputs.terraform-outputs@0
+              displayName: 'Terraform Outputs'
+              inputs:
+                workingDirectory: '$(Pipeline.Workspace)/Terraform'
+                variablePrefix: 'TFSET_'
+          
+            - bash: |
+                mkdir variableFiles
+                echo "$(TFSET_ApplicationInsightsInstrumentationKey)" > $(Build.Repository.LocalPath)/variableFiles/ApplicationInsightsInstrumentationKey
+                echo "$(TFSET_StorageConnectionString)" > $(Build.Repository.LocalPath)/variableFiles/StorageConnectionString
+                echo "$(TFSET_ResourceGroupName)" > $(Build.Repository.LocalPath)/variableFiles/ResourceGroupName
+              displayName: 'Save variables to files'
+
+            - publish: $(Build.Repository.LocalPath)/variableFiles
+              artifact: VariableFiles
+              displayName: 'Deploy variable files'

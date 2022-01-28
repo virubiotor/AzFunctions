@@ -1,0 +1,52 @@
+parameters:  
+  - name: subscription
+    type: string
+
+jobs:
+  - deployment: Functions
+    displayName: 'Deploy Functions'
+    dependsOn: ['Deploy_Infrastructure']
+    environment: Functions
+
+    variables:
+      - group: Functions
+
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - download: current
+              displayName: 'Download variables'
+              artifact: VariableFiles
+
+            - download: current
+              displayName: 'Download FunctionsDeployment'
+              artifact: FunctionsDeployment
+
+            - bash: |
+                echo "##vso[task.setvariable variable=ApplicationInsightsInstrumentationKey]$(cat $(Pipeline.Workspace)/VariableFiles/ApplicationInsightsInstrumentationKey)"
+                echo "##vso[task.setvariable variable=StorageConnectionString]$(cat $(Pipeline.Workspace)/VariableFiles/StorageConnectionString)"
+                echo "##vso[task.setvariable variable=AppServiceFunctionName]$(cat $(Pipeline.Workspace)/VariableFiles/AppServiceFunctionName)"
+                echo "##vso[task.setvariable variable=AppServiceWebName]$(cat $(Pipeline.Workspace)/VariableFiles/AppServiceWebName)"
+                echo "##vso[task.setvariable variable=ResourceGroupName]$(cat $(Pipeline.Workspace)/VariableFiles/ResourceGroupName)"
+              displayName: 'Load file variables to pipeline variables'
+
+            - task: AzureFunctionApp@1
+              displayName: 'Function deployment'
+              inputs:
+                azureSubscription: '${{parameters.subscription}}'
+                appName: $(AppServiceFunctionName)
+                runtimeStack: 'DOTNET|3.1'
+                package: $(Pipeline.Workspace)/FunctionsDeployment/functions.zip
+                resourceGroupName: $(ResourceGroupName)
+
+            # https://github.com/hashicorp/terraform-provider-azurerm/issues/1560
+            - task: AzureRmWebAppDeployment@4
+              displayName: 'Web deployment'
+              inputs:
+                appType: webApp
+                ConnectionType: AzureRM            
+                ConnectedServiceName: '${{parameters.subscription}}'
+                WebAppName: $(AppServiceWebName)
+                Package: $(Pipeline.Workspace)/FunctionsDeployment/web.zip
+                resourceGroupName: $(ResourceGroupName)

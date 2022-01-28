@@ -1,0 +1,23 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+trigger:
+  branches:
+    include:
+      - main
+stages:
+  - stage: Build_Publish_Artifacts
+    displayName: Build and Publish Artifacts
+    jobs:
+      - template: ci/build.yml
+        parameters:
+          subscription: "AzSubscription"
+
+  - stage: Deploy_Functions
+    displayName: Deploy Functions
+    dependsOn: Build_Publish_Artifacts
+    jobs:
+      - template: cd/release.deploy.terraform.yml
+        parameters:
+          subscription: "AzSubscription"
+      - template: cd/release.deploy.function.yml
+        parameters:
+          subscription: "AzSubscription"
